@@ -1,5 +1,5 @@
 {
-  "Comment": "API Load Tester State Machine",
+  "Comment": "API Load Tester State Machine — routes each worker to its regional Lambda via lambdaArn",
   "StartAt": "RunWorkers",
   "States": {
     "RunWorkers": {
@@ -16,7 +16,7 @@
             "Type": "Task",
             "Resource": "arn:aws:states:::lambda:invoke",
             "Parameters": {
-              "FunctionName": "${worker_arn}",
+              "FunctionName.$": "$.lambdaArn",
               "Payload.$": "$"
             },
             "End": true

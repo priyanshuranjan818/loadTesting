@@ -1,6 +1,8 @@
 import { DynamoDBClient, BatchWriteItemCommand } from "@aws-sdk/client-dynamodb";
 
-const client = new DynamoDBClient({});
+// DYNAMODB_REGION forces cross-region workers (ap-south-1, eu-west-1) to
+// write results back to the central us-east-1 DynamoDB table.
+const client = new DynamoDBClient({ region: process.env.DYNAMODB_REGION || undefined });
 const RESULTS_TABLE = process.env.RESULTS_TABLE;
 
 export const handler = async (event) => {

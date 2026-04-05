@@ -6,6 +6,13 @@ const sfnClient = new SFNClient({});
 const RESULTS_TABLE = process.env.RESULTS_TABLE;
 const STATE_MACHINE_ARN = process.env.STATE_MACHINE_ARN;
 
+// Regional Lambda ARNs — workers are distributed round-robin across regions.
+const WORKER_ARNS = [
+  process.env.WORKER_ARN_US,
+  process.env.WORKER_ARN_AP,
+  process.env.WORKER_ARN_EU,
+].filter(Boolean);
+
 export const handler = async (event) => {
   try {
     const body = JSON.parse(event.body || "{}");
@@ -32,7 +39,8 @@ export const handler = async (event) => {
       }
     }));
     
-    // Create worker configs
+    // Create worker configs — each worker gets a regional Lambda ARN
+    // so Step Functions routes it to the correct region.
     const workers = [];
     const baseRequestsPerWorker = Math.floor(totalRequests / concurrency);
     let remainingRequests = totalRequests % concurrency;
@@ -41,7 +49,8 @@ export const handler = async (event) => {
         let reqCount = baseRequestsPerWorker + (remainingRequests > 0 ? 1 : 0);
         if (remainingRequests > 0) remainingRequests--;
         if (reqCount > 0) {
-            workers.push({ testId, url, requestCount: reqCount, workerId: `w${i}` });
+            const lambdaArn = WORKER_ARNS[i % WORKER_ARNS.length];
+            workers.push({ testId, url, requestCount: reqCount, workerId: `w${i}`, lambdaArn });
         }
     }
     
@@ -55,7 +64,7 @@ export const handler = async (event) => {
       statusCode: 200,
       headers: {
         "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Credentials": true
+        "Access-Control-Allow-Credentials": "true"
       },
       body: JSON.stringify({ testId })
     };
