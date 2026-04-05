@@ -1,0 +1,29 @@
+{
+  "Comment": "API Load Tester State Machine",
+  "StartAt": "RunWorkers",
+  "States": {
+    "RunWorkers": {
+      "Type": "Map",
+      "ItemsPath": "$.workers",
+      "MaxConcurrency": 0,
+      "ItemProcessor": {
+        "ProcessorConfig": {
+          "Mode": "INLINE"
+        },
+        "StartAt": "InvokeWorker",
+        "States": {
+          "InvokeWorker": {
+            "Type": "Task",
+            "Resource": "arn:aws:states:::lambda:invoke",
+            "Parameters": {
+              "FunctionName": "${worker_arn}",
+              "Payload.$": "$"
+            },
+            "End": true
+          }
+        }
+      },
+      "End": true
+    }
+  }
+}
