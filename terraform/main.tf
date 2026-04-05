@@ -97,7 +97,7 @@ resource "aws_lambda_function" "worker_us" {
   handler          = "index.handler"
   source_code_hash = data.archive_file.worker_zip.output_base64sha256
   runtime          = "nodejs20.x"
-  timeout          = 60
+  timeout          = 300
   environment {
     variables = {
       RESULTS_TABLE  = aws_dynamodb_table.results_table.name
@@ -116,7 +116,7 @@ resource "aws_lambda_function" "worker_ap" {
   handler          = "index.handler"
   source_code_hash = data.archive_file.worker_zip.output_base64sha256
   runtime          = "nodejs20.x"
-  timeout          = 60
+  timeout          = 300
   environment {
     variables = {
       RESULTS_TABLE   = aws_dynamodb_table.results_table.name
@@ -136,7 +136,7 @@ resource "aws_lambda_function" "worker_eu" {
   handler          = "index.handler"
   source_code_hash = data.archive_file.worker_zip.output_base64sha256
   runtime          = "nodejs20.x"
-  timeout          = 60
+  timeout          = 300
   environment {
     variables = {
       RESULTS_TABLE   = aws_dynamodb_table.results_table.name

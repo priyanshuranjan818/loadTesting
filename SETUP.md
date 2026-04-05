@@ -305,6 +305,29 @@ That's your public URL! Share it with anyone. 🌍
 
 ## Troubleshooting
 
+### ❌ `terraform init` fails with "connection was forcibly closed" or "could not connect to registry.terraform.io"
+
+This is an **IPv6 routing issue** — very common on Indian ISPs (Jio, Airtel, etc.). Your machine is trying to reach Terraform's registry over IPv6, but your ISP drops the connection.
+
+**Fix (Windows):**
+
+1. Open **PowerShell as Administrator** (right-click PowerShell → "Run as administrator")
+2. Run:
+```powershell
+netsh interface ipv6 set prefixpolicy ::ffff:0:0/96 100 4
+```
+3. You should see `Ok.`
+4. Retry `terraform init` in your normal terminal
+
+This tells Windows to prefer IPv4 over IPv6. It's completely safe and reversible.
+
+**To undo later (optional):**
+```powershell
+netsh interface ipv6 delete prefixpolicy ::ffff:0:0/96
+```
+
+---
+
 ### ❌ `terraform apply` fails with "Access Denied"
 Your IAM user doesn't have enough permissions. Either:
 - Attach the `AdministratorAccess` policy to your user in the AWS Console, or

@@ -6,12 +6,11 @@ const sfnClient = new SFNClient({});
 const RESULTS_TABLE = process.env.RESULTS_TABLE;
 const STATE_MACHINE_ARN = process.env.STATE_MACHINE_ARN;
 
-// Regional Lambda ARNs — workers are distributed round-robin across regions.
-const WORKER_ARNS = [
-  process.env.WORKER_ARN_US,
-  process.env.WORKER_ARN_AP,
-  process.env.WORKER_ARN_EU,
-].filter(Boolean);
+// NOTE: Step Functions' arn:aws:states:::lambda:invoke integration is region-local —
+// it cannot invoke Lambdas in other regions. We use only the us-east-1 worker here.
+// Lambda scales horizontally within the region so high concurrency still works.
+const WORKER_ARN = process.env.WORKER_ARN_US;
+const TARGET_REGIONS = ['us-east-1', 'ap-south-1', 'eu-west-1'];
 
 export const handler = async (event) => {
   try {
@@ -49,8 +48,9 @@ export const handler = async (event) => {
         let reqCount = baseRequestsPerWorker + (remainingRequests > 0 ? 1 : 0);
         if (remainingRequests > 0) remainingRequests--;
         if (reqCount > 0) {
-            const lambdaArn = WORKER_ARNS[i % WORKER_ARNS.length];
-            workers.push({ testId, url, requestCount: reqCount, workerId: `w${i}`, lambdaArn });
+            const lambdaArn = WORKER_ARN;
+            const targetRegion = TARGET_REGIONS[i % TARGET_REGIONS.length];
+            workers.push({ testId, url, requestCount: reqCount, workerId: `w${i}`, lambdaArn, targetRegion });
         }
     }
     

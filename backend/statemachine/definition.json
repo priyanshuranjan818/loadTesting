@@ -19,6 +19,30 @@
               "FunctionName.$": "$.lambdaArn",
               "Payload.$": "$"
             },
+            "Retry": [
+              {
+                "ErrorEquals": [
+                  "Lambda.TooManyRequestsException",
+                  "Lambda.ServiceException",
+                  "Lambda.AWSLambdaException",
+                  "Lambda.SdkClientException",
+                  "States.Timeout"
+                ],
+                "IntervalSeconds": 2,
+                "MaxAttempts": 6,
+                "BackoffRate": 2.0
+              }
+            ],
+            "Catch": [
+              {
+                "ErrorEquals": [ "States.ALL" ],
+                "Next": "IgnoreError"
+              }
+            ],
+            "End": true
+          },
+          "IgnoreError": {
+            "Type": "Pass",
             "End": true
           }
         }

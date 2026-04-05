@@ -48,13 +48,41 @@ export const handler = async (event) => {
     }).length;
     
     const regions = {};
+    const timeBuckets = {};
+
+    let minTime = Infinity;
+
     testRecords.forEach(item => {
+      // Regions
       const reg = item.region?.S || "unknown";
       if (!regions[reg]) { regions[reg] = { count: 0, latencies: [] }; }
       regions[reg].count += 1;
-      regions[reg].latencies.push(parseInt(item.latency?.N || "0"));
+      
+      const lat = parseInt(item.latency?.N || "0");
+      regions[reg].latencies.push(lat);
+
+      // Timeseries
+      const ts = parseInt(item.timestamp?.N || "0");
+      if (ts < minTime && ts > 0) minTime = ts;
+
+      // Group by second (1000ms buckets)
+      const secBucket = Math.floor(ts / 1000) * 1000;
+      if (!timeBuckets[secBucket]) {
+        timeBuckets[secBucket] = { sumLatency: 0, count: 0, bucket: secBucket };
+      }
+      timeBuckets[secBucket].sumLatency += lat;
+      timeBuckets[secBucket].count += 1;
     });
-    
+
+    const timeseries = Object.values(timeBuckets)
+      .sort((a, b) => a.bucket - b.bucket)
+      .map(b => ({
+        // Relative seconds since test started (0s, 1s, 2s...)
+        timeSeconds: minTime !== Infinity ? Math.floor((b.bucket - minTime) / 1000) : 0,
+        avgLatency: Math.round(b.sumLatency / b.count),
+        requests: b.count
+      }));
+
     const targetUrl = metaRecord ? metaRecord.url?.S : "unknown";
     const totalRequestsWanted = metaRecord ? parseInt(metaRecord.totalRequests?.N || "0") : 0;
     const completedRequests = testRecords.length;
@@ -79,7 +107,8 @@ export const handler = async (event) => {
         p95,
         p99,
         errors,
-        regions
+        regions,
+        timeseries
       })
     };
   } catch (error) {

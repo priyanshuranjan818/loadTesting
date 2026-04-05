@@ -1,5 +1,5 @@
 import React from 'react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import { ArrowPathIcon, CheckCircleIcon } from '@heroicons/react/24/outline';
 
 const StatCard = ({ title, value, unit }) => (
@@ -11,6 +11,29 @@ const StatCard = ({ title, value, unit }) => (
     </div>
   </div>
 );
+
+const REGION_COLORS = {
+  'us-east-1': '#3b82f6', // blue-500
+  'ap-south-1': '#10b981', // emerald-500
+  'eu-west-1': '#8b5cf6', // violet-500
+};
+
+const CustomLegend = (props) => {
+  const { payload } = props;
+  return (
+    <ul className="flex items-center gap-4 text-xs font-medium text-muted-foreground pb-4 pt-1">
+      {payload.map((entry, index) => (
+        <li key={`item-${index}`} className="flex items-center gap-1.5">
+          <span 
+            className="w-2.5 h-2.5 rounded-sm" 
+            style={{ backgroundColor: entry.color }} 
+          />
+          {entry.value}
+        </li>
+      ))}
+    </ul>
+  );
+};
 
 const ResultsDashboard = ({ stats }) => {
   if (!stats) {
@@ -27,6 +50,14 @@ const ResultsDashboard = ({ stats }) => {
   const regionData = Object.keys(regions || {}).map(key => ({
     name: key,
     requests: regions[key].count
+  }));
+
+  // Ensure all 3 exact names are present in the legend payload even if they have 0 requests currently
+  const legendPayload = ['us-east-1', 'ap-south-1', 'eu-west-1'].map(name => ({
+    value: name,
+    type: 'square',
+    id: name,
+    color: REGION_COLORS[name]
   }));
 
   return (
@@ -56,20 +87,31 @@ const ResultsDashboard = ({ stats }) => {
         <StatCard title="Failed" value={errors} unit="reqs" />
       </div>
 
-      <div className="bg-background rounded-xl border border-border p-4 shadow-sm flex flex-col min-h-[160px] flex-1">
-        <h3 className="text-[11px] font-semibold text-muted-foreground mb-3">Regional Distribution</h3>
-        <div className="flex-1 w-full min-h-0">
+      <div className="bg-background rounded-xl border border-border p-5 shadow-sm flex flex-col">
+        <h3 className="text-sm font-medium text-foreground mb-1">Regional Distribution</h3>
+        <div style={{ width: '100%', height: 320 }}>
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={regionData} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+            <BarChart data={regionData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }} barSize={40}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-              <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" axisLine={false} tickLine={false} tick={{fontSize: 10}} />
-              <YAxis stroke="hsl(var(--muted-foreground))" axisLine={false} tickLine={false} tick={{fontSize: 10}} />
+              <XAxis dataKey="name" stroke="hsl(var(--muted-foreground))" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6b7280'}} tickMargin={10} />
+              <YAxis stroke="hsl(var(--muted-foreground))" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#6b7280'}} tickMargin={10} />
               <Tooltip 
-                cursor={{fill: 'hsl(var(--secondary))'}} 
-                contentStyle={{backgroundColor: 'hsl(var(--background))', borderColor: 'hsl(var(--border))', borderRadius: '8px', color: 'hsl(var(--foreground))', fontSize: '12px'}}
-                itemStyle={{color: 'hsl(var(--primary))'}}
+                cursor={{fill: '#f9fafb'}} 
+                contentStyle={{backgroundColor: '#ffffff', borderColor: '#e5e7eb', borderRadius: '8px', color: '#1a2332', fontSize: '12px'}}
               />
-              <Bar dataKey="requests" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+              <Legend 
+                content={<CustomLegend />} 
+                verticalAlign="top" 
+                align="left"
+                payload={legendPayload}
+              />
+              <Bar dataKey="requests" radius={[6, 6, 0, 0]}>
+                {
+                  regionData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={REGION_COLORS[entry.name] || '#94a3b8'} />
+                  ))
+                }
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>

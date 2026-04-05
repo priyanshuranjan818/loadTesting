@@ -7,7 +7,7 @@ import About from './About';
 import Contact from './Contact';
 import Docs from './Docs';
 
-const DashboardPreview = ({ onTestStart, testId, testStats, isExpanded, onExpanding }) => {
+const DashboardPreview = ({ onTestStart, testId, testStats, isExpanded, onExpanding, pollError }) => {
   const [activeWindow, setActiveWindow] = useState('dashboard');
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -174,7 +174,15 @@ const DashboardPreview = ({ onTestStart, testId, testStats, isExpanded, onExpand
 
               {/* Main Content Area (Right Dashboard) */}
               <div className="flex-1 bg-secondary/30 p-6 flex flex-col overflow-y-auto h-full relative">
-                {testId ? (
+                {pollError ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 pointer-events-none select-none">
+                    <div className="bg-red-50 border border-red-200 p-4 rounded-2xl shadow-sm mb-4">
+                      <svg className="w-8 h-8 text-red-400 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" /></svg>
+                    </div>
+                    <h3 className="text-sm font-semibold text-red-600 mb-1">Test Stalled</h3>
+                    <p className="max-w-[280px] leading-relaxed text-xs text-red-500">{pollError}</p>
+                  </div>
+                ) : testId ? (
                   <ResultsDashboard stats={testStats} />
                 ) : (
                   <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-6 text-muted-foreground pointer-events-none select-none">
@@ -197,28 +205,64 @@ const DashboardPreview = ({ onTestStart, testId, testStats, isExpanded, onExpand
 export default function App() {
   const [testId, setTestId] = useState(null);
   const [testStats, setTestStats] = useState(null);
+  const [pollError, setPollError] = useState(null);
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
 
   useEffect(() => {
-    let intervalId;
-    if (testId) {
-      intervalId = setInterval(async () => {
-        try {
-          const res = await fetch(`${import.meta.env.VITE_API_URL}/results/${testId}`);
-          if (res.ok) {
-            const data = await res.json();
-            setTestStats(data);
-            if (data.isComplete) {
-              clearInterval(intervalId);
-            }
-          }
-        } catch (e) {
-          console.error("Polling error", e);
+    if (!testId) return;
+
+    let intervalId = null;
+    // Stall detection: track last seen completed count + when we last saw it change
+    let lastCompleted = -1;
+    let lastProgressAt = Date.now();
+    const STALL_MS = 30_000; // 30 seconds without new results = stalled
+
+    setPollError(null);
+
+    const poll = async () => {
+      try {
+        const res = await fetch(
+          `${import.meta.env.VITE_API_URL}/results/${testId}`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        setTestStats(data);
+
+        // Update stall tracker whenever completed count moves forward
+        if (data.completed !== lastCompleted) {
+          lastCompleted = data.completed;
+          lastProgressAt = Date.now();
         }
-      }, 2000);
-    }
-    return () => clearInterval(intervalId);
+
+        // Stop when all results are in
+        if (data.isComplete) {
+          clearInterval(intervalId);
+          intervalId = null;
+          return;
+        }
+
+        // Stop and surface error if no progress for STALL_MS
+        if (Date.now() - lastProgressAt > STALL_MS) {
+          clearInterval(intervalId);
+          intervalId = null;
+          setPollError(
+            lastCompleted === 0
+              ? `Target URL isn't responding — all requests timed out. Check that the URL is reachable and try again.`
+              : `Test stalled at ${lastCompleted} requests. The remaining workers may have timed out.`
+          );
+        }
+      } catch (e) {
+        console.error('Polling error:', e);
+      }
+    };
+
+    poll();
+    intervalId = setInterval(poll, 2000);
+
+    return () => {
+      if (intervalId !== null) clearInterval(intervalId);
+    };
   }, [testId]);
 
   return (
@@ -283,7 +327,14 @@ export default function App() {
               Send thousands of virtual users to your API or website all at once. Find bottlenecks and fix server slowdowns before your real customers ever notice.
             </motion.p>
 
-            <DashboardPreview onTestStart={setTestId} testId={testId} testStats={testStats} isExpanded={isExpanded || !!testId} onExpanding={() => setIsExpanded(true)} />
+            <DashboardPreview
+              onTestStart={(id) => { setPollError(null); setTestId(id); }}
+              testId={testId}
+              testStats={testStats}
+              isExpanded={isExpanded || !!testId}
+              onExpanding={() => setIsExpanded(true)}
+              pollError={pollError}
+            />
             
           </main>
         ) : activeTab === 'about' ? (
